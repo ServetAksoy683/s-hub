@@ -360,6 +360,15 @@
             color: #ffffff;
         }
         .launch-btn.stop { background-color: #ff4b4b; }
+
+        /* Feign: arka planı silinmiş logo */
+        .script-logo.transparent {
+            object-fit: contain;
+            border: none;
+            background: transparent;
+            border-radius: 0;
+        }
+        .script-card + .script-card { margin-top: 12px; }
     </style>
 </head>
 <body>
@@ -408,7 +417,16 @@
                     <div class="script-title">Oxide Menu v1.0.0</div>
                     <div class="script-desc">ESP (Wallhack), Aimlock, Sınırsız Mermi, Hız Artırıcı.</div>
                 </div>
-                <button class="launch-btn" onclick="launchModMenu()">Launch</button>
+                <button class="launch-btn" id="launchBtn-oxide" onclick="toggleMenu('oxide')">Launch</button>
+            </div>
+
+            <div class="script-card" id="feignCard">
+                <img src="feign_logo.png" alt="Feign Logo" class="script-logo transparent">
+                <div class="script-details">
+                    <div class="script-title">Feign Menu v1.0.0</div>
+                    <div class="script-desc">ROLE ESP.</div>
+                </div>
+                <button class="launch-btn" id="launchBtn-feign" onclick="toggleMenu('feign')">Launch</button>
             </div>
         </div>
     </div>
@@ -520,51 +538,39 @@
         // Arama Mantığı
         function filterScripts() {
             const input = document.getElementById('searchInput');
-            const card = document.getElementById('oxideCard');
-
-            if (!input || !card) return;
-
+            if (!input) return;
             const query = input.value.toLowerCase();
-            const title = card.querySelector('.script-title')?.innerText.toLowerCase() || '';
-            const desc = card.querySelector('.script-desc')?.innerText.toLowerCase() || '';
+            document.querySelectorAll('.script-card').forEach(card => {
+                const title = card.querySelector('.script-title')?.innerText.toLowerCase() || '';
+                const desc = card.querySelector('.script-desc')?.innerText.toLowerCase() || '';
+                card.style.display = (title.includes(query) || desc.includes(query)) ? 'flex' : 'none';
+            });
+        }
 
-            if (title.includes(query) || desc.includes(query)) {
-                card.style.display = 'flex';
+        // Launch / Çalışmayı durdur (profile: 'oxide' | 'feign')
+        function toggleMenu(profile) {
+            if (!window.AndroidBridge) { alert("Sadece uygulamada çalışır."); return; }
+            if (window.AndroidBridge.runningProfile() === profile) {
+                window.AndroidBridge.stopFloatingMenu();
             } else {
-                card.style.display = 'none';
+                console.log("[Hub] " + profile + " menüsü başlatılıyor...");
+                window.AndroidBridge.startFloatingMenu(profile);
             }
+            setTimeout(updateLaunchBtn, 400);
         }
 
-        // Launch Butonuna Basılınca
-        function launchModMenu() {
-            console.log("[Hub] Oxide Menu Başlatılıyor...");
-            if (window.AndroidBridge) {
-                window.AndroidBridge.startFloatingMenu();
-            } else {
-                alert("Oxide Menu başlatıldı!");
-            }
+        function updateLaunchBtn() {
+            if (!window.AndroidBridge) return;
+            const running = window.AndroidBridge.runningProfile();
+            ['oxide', 'feign'].forEach(p => {
+                const btn = document.getElementById('launchBtn-' + p);
+                if (!btn) return;
+                const on = running === p;
+                btn.innerText = on ? 'Çalışmayı durdur' : 'Launch';
+                btn.classList.toggle('stop', on);
+            });
         }
-        function toggleMenu() {
-    if (window.AndroidBridge) {
-        if (window.AndroidBridge.isMenuRunning()) {
-            window.AndroidBridge.stopFloatingMenu();
-        } else {
-            window.AndroidBridge.startFloatingMenu();
-        }
-        setTimeout(updateLaunchBtn, 300);
-    } else {
-        alert("Sadece uygulamada çalışır.");
-    }
-}
-
-function updateLaunchBtn() {
-    const btn = document.getElementById('launchBtn');
-    if (!btn || !window.AndroidBridge) return;
-    const running = window.AndroidBridge.isMenuRunning();
-    btn.innerText = running ? 'Çalışmayı durdur' : 'Launch';
-    btn.classList.toggle('stop', running);
-}
-setInterval(updateLaunchBtn, 700);
+        setInterval(updateLaunchBtn, 700);
     </script>
 </body>
 </html>
