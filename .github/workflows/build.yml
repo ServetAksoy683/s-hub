@@ -15,12 +15,15 @@ jobs:
         with:
           gradle-version: 8.7
       
-      # 👇 YENİ EKLENEN NDK ADIMI 👇
+      # 👇 YENİ: Android SDK'yı kur ve PATH'e ekle
+      - uses: android-actions/setup-android@v3
+      # 👆
+      
+      # NDK kurulumu
       - name: Setup NDK
         run: |
           echo "y" | sdkmanager --install "ndk;26.1.10909125"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
-      # 👆 YENİ EKLENEN NDK ADIMI 👆
       
       - name: Build APK
         run: |
