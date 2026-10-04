@@ -23,6 +23,7 @@ jobs:
       - name: Build APK
         run: |
           unzip -q S-Entertainment-Hub-Android.zip
+          mkdir -p SEntertainmentHub/app/src/main/assets
           cp index.html SEntertainmentHub/app/src/main/assets/index.html
           cd SEntertainmentHub
           gradle assembleDebug
