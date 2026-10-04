@@ -15,55 +15,48 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup NDK
+      # Native (C++) için NDK + CMake, Android 34 platformu
+      - name: Android SDK / NDK / CMake kur
         run: |
           SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          [ -x "$SDKM" ] || SDKM="/usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager"
-          echo "y" | "$SDKM" --install "ndk;26.1.10909125" "cmake;3.22.1"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-34" "build-tools;34.0.0" "cmake;3.22.1" "ndk;26.1.10909125"
 
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
 
-      - name: Zip'leri aç
+      # Zip'i aç (iç içe klasör / zip olsa bile settings.gradle'ı bulur)
+      - name: Projeyi hazirla
+        id: proj
         run: |
           set -e
-          for z in $(find . -name '*.zip' -not -path './.git/*'); do
-            echo "Açılıyor: $z"
-            unzip -oq "$z" -d .
-          done
-          echo "--- Dizin yapısı ---"
-          find . -maxdepth 5 -type d -not -path './.git*' | head -50
-
-      - name: Proje dizinini bul
-        id: locate
-        run: |
-          SG=$(find . -name settings.gradle -not -path './.git/*' | head -1)
-          if [ -z "$SG" ]; then
-            echo "settings.gradle bulunamadı!"
-            exit 1
+          find_settings() {
+            find "$1" -name settings.gradle -not -path '*/.git/*' | awk '{print length, $0}' | sort -n | head -1 | cut -d' ' -f2-
+          }
+          S=$(find_settings .)
+          if [ -z "$S" ]; then
+            mkdir -p work
+            for z in $(find . -maxdepth 1 -name '*.zip'); do unzip -oq "$z" -d work; done
+            for i in 1 2 3; do
+              for z in $(find work -name '*.zip'); do unzip -oq "$z" -d "$(dirname "$z")"; done
+            done
+            S=$(find_settings work)
           fi
-          DIR=$(dirname "$SG")
-          echo "Proje dizini: $DIR"
-          echo "dir=$DIR" >> $GITHUB_OUTPUT
-
-      - name: index.html kopyala
-        run: |
-          DIR="${{ steps.locate.outputs.dir }}"
+          if [ -z "$S" ]; then echo "settings.gradle bulunamadi"; exit 1; fi
+          DIR=$(cd "$(dirname "$S")" && pwd)
+          echo "Proje klasoru: $DIR"
           if [ -f index.html ]; then
             mkdir -p "$DIR/app/src/main/assets"
             cp index.html "$DIR/app/src/main/assets/index.html"
-            echo "index.html kopyalandı"
-          else
-            echo "index.html bulunamadı, atlanıyor"
           fi
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
 
       - name: APK derle
-        working-directory: ${{ steps.locate.outputs.dir }}
+        working-directory: ${{ steps.proj.outputs.dir }}
         run: gradle assembleDebug --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
           name: S-Entertainment-Hub
-          path: ${{ steps.locate.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.proj.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
