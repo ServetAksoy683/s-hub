@@ -1,34 +1,69 @@
 name: Build APK
-on: [push, workflow_dispatch]
+
+on:
+  push:
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-      
+
+      - name: Setup NDK
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKM" ] || SDKM="/usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager"
+          echo "y" | "$SDKM" --install "ndk;26.1.10909125" "cmake;3.22.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
-      
-      - name: Setup NDK
+
+      - name: Zip'leri aç
         run: |
-          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125" || echo "y" | /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager --install "ndk;26.1.10909125"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
-      
-      - name: Build APK
+          set -e
+          for z in $(find . -name '*.zip' -not -path './.git/*'); do
+            echo "Açılıyor: $z"
+            unzip -oq "$z" -d .
+          done
+          echo "--- Dizin yapısı ---"
+          find . -maxdepth 5 -type d -not -path './.git*' | head -50
+
+      - name: Proje dizinini bul
+        id: locate
         run: |
-          unzip -q S-Entertainment-Hub-Android.zip
-          mkdir -p SEntertainmentHub/app/src/main/assets
-          cp index.html SEntertainmentHub/app/src/main/assets/index.html
-          cd SEntertainmentHub
-          gradle assembleDebug
-      
+          SG=$(find . -name settings.gradle -not -path './.git/*' | head -1)
+          if [ -z "$SG" ]; then
+            echo "settings.gradle bulunamadı!"
+            exit 1
+          fi
+          DIR=$(dirname "$SG")
+          echo "Proje dizini: $DIR"
+          echo "dir=$DIR" >> $GITHUB_OUTPUT
+
+      - name: index.html kopyala
+        run: |
+          DIR="${{ steps.locate.outputs.dir }}"
+          if [ -f index.html ]; then
+            mkdir -p "$DIR/app/src/main/assets"
+            cp index.html "$DIR/app/src/main/assets/index.html"
+            echo "index.html kopyalandı"
+          else
+            echo "index.html bulunamadı, atlanıyor"
+          fi
+
+      - name: APK derle
+        working-directory: ${{ steps.locate.outputs.dir }}
+        run: gradle assembleDebug --stacktrace
+
       - uses: actions/upload-artifact@v4
         with:
           name: S-Entertainment-Hub
-          path: SEntertainmentHub/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.locate.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
