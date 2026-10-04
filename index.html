@@ -359,6 +359,7 @@
             background-color: var(--accent-blue);
             color: #ffffff;
         }
+        .launch-btn.stop { background-color: #ff4b4b; }
     </style>
 </head>
 <body>
@@ -543,6 +544,27 @@
                 alert("Oxide Menu başlatıldı!");
             }
         }
+        function toggleMenu() {
+    if (window.AndroidBridge) {
+        if (window.AndroidBridge.isMenuRunning()) {
+            window.AndroidBridge.stopFloatingMenu();
+        } else {
+            window.AndroidBridge.startFloatingMenu();
+        }
+        setTimeout(updateLaunchBtn, 300);
+    } else {
+        alert("Sadece uygulamada çalışır.");
+    }
+}
+
+function updateLaunchBtn() {
+    const btn = document.getElementById('launchBtn');
+    if (!btn || !window.AndroidBridge) return;
+    const running = window.AndroidBridge.isMenuRunning();
+    btn.innerText = running ? 'Çalışmayı durdur' : 'Launch';
+    btn.classList.toggle('stop', running);
+}
+setInterval(updateLaunchBtn, 700);
     </script>
 </body>
 </html>
